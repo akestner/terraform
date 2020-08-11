@@ -12,12 +12,45 @@ provider "aws" {
   region  = "us-west-2"
 }
 
+resource "aws_vpc" "terraform" {
+  cidr_block           = "10.0.0.0/16"
+  enable_dns_support   = true
+  enable_dns_hostnames = true
+}
+
 resource "aws_appmesh_mesh" "terraform" {
   name = "terraform"
 }
 
-resource "aws_service_discovery_http_namespace" "terraform" {
+resource "aws_service_discovery_private_dns_namespace" "terraform" {
   name = "terraform"
+  vpc  = aws_vpc.terraform.id
+}
+
+resource "aws_service_discovery_service" "frontend-v1" {
+  name = "frontend-v1"
+
+  dns_config {
+    namespace_id = aws_service_discovery_private_dns_namespace.terraform.id
+
+    dns_records {
+      ttl  = 0
+      type = "A"
+    }
+  }
+}
+
+resource "aws_service_discovery_service" "frontend-v2" {
+  name = "frontend-v2"
+
+  dns_config {
+    namespace_id = aws_service_discovery_private_dns_namespace.terraform.id
+
+    dns_records {
+      ttl  = 0
+      type = "A"
+    }
+  }
 }
 
 resource "aws_appmesh_virtual_router" "frontend" {
@@ -107,7 +140,7 @@ resource "aws_appmesh_virtual_node" "frontend-v1" {
     service_discovery {
       aws_cloud_map {
         service_name   = "frontend-v1"
-        namespace_name = aws_service_discovery_http_namespace.terraform.name
+        namespace_name = aws_service_discovery_private_dns_namespace.terraform.name
       }
     }
   }
@@ -134,7 +167,7 @@ resource "aws_appmesh_virtual_node" "frontend-v2" {
     service_discovery {
       aws_cloud_map {
         service_name   = "frontend-v2"
-        namespace_name = aws_service_discovery_http_namespace.terraform.name
+        namespace_name = aws_service_discovery_private_dns_namespace.terraform.name
       }
     }
   }
